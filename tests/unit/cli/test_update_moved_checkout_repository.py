@@ -11,12 +11,16 @@ import pytest
 from click.testing import CliRunner
 from sqlalchemy import select
 
+from repowise.cli.helpers import save_state
 from repowise.cli.main import cli
+from repowise.core.ingestion.git_indexer import GIT_HISTORY_VERSION, GIT_HISTORY_VERSION_KEY
 from repowise.core.persistence import create_engine, create_session_factory, get_session
 from repowise.core.persistence.database import resolve_db_url
 from repowise.core.persistence.models import Repository
 from repowise.core.pipeline.full_index import index_repo_full
 from repowise.server.mcp_server._meta import served_root
+
+CURRENT_GIT_HISTORY = {GIT_HISTORY_VERSION_KEY: GIT_HISTORY_VERSION}
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -36,6 +40,14 @@ def _seed_repo(tmp_path: Path) -> Path:
     _git(orig, "add", ".")
     _git(orig, "commit", "-m", "init")
     asyncio.run(index_repo_full(orig))
+    save_state(
+        orig,
+        {
+            "last_sync_commit": _git(orig, "rev-parse", "HEAD"),
+            "docs_enabled": False,
+            **CURRENT_GIT_HISTORY,
+        },
+    )
     return orig
 
 
@@ -43,6 +55,7 @@ def _seed_repo(tmp_path: Path) -> Path:
 def db_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("REPOWISE_DB_URL", raising=False)
     monkeypatch.delenv("REPOWISE_DATABASE_URL", raising=False)
+    monkeypatch.setenv("REPOWISE_SKIP_EDITOR_SETUP", "1")
 
 
 def test_update_in_copied_checkout_keeps_one_repository_row(
