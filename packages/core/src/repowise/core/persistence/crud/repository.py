@@ -63,12 +63,14 @@ async def upsert_repository(
     head_commit: str | None = None,
     stamp_head: bool = False,
     repo_id: str | None = None,
+    relocate_sole_row_on_path_miss: bool = False,
 ) -> Repository:
     """Create or update a repository record.
 
-    Lookup is by ``local_path``. A repo-local store with one row and a path
-    miss (a moved or copied checkout) rewrites that row's path instead of
-    inserting a second row; configured or multi-repo stores match by path only.
+    Lookup is by ``local_path``. When ``relocate_sole_row_on_path_miss`` is
+    set (``repowise update`` paths), a repo-local store with one row and a path
+    miss rewrites that row's path instead of inserting a second row; configured
+    or multi-repo stores still match by path only.
 
     ``repo_id`` fixes the primary key when the row is *created*. The server
     keeps a registry row for each repo in its primary database and the
@@ -86,7 +88,10 @@ async def upsert_repository(
     made the database claim an index at HEAD while ``state.json`` still named
     the last real sync.
     """
-    repo = await _repository_for_upsert(session, local_path)
+    if relocate_sole_row_on_path_miss:
+        repo = await _repository_for_upsert(session, local_path)
+    else:
+        repo = await get_repository_by_path(session, local_path)
 
     stamping = repo is None or stamp_head or head_commit is not None
     resolved_head = (head_commit or _read_head_commit(local_path)) if stamping else None

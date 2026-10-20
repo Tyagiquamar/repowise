@@ -40,10 +40,12 @@ def _seed_repo(tmp_path: Path) -> Path:
     _git(orig, "add", ".")
     _git(orig, "commit", "-m", "init")
     asyncio.run(index_repo_full(orig))
+    head = _git(orig, "rev-parse", "HEAD")
     save_state(
         orig,
         {
-            "last_sync_commit": _git(orig, "rev-parse", "HEAD"),
+            "last_sync_commit": head,
+            "last_docs_commit": head,
             "docs_enabled": False,
             **CURRENT_GIT_HISTORY,
         },
@@ -98,4 +100,4 @@ def test_update_in_copied_checkout_keeps_one_repository_row(
             await engine.dispose()
 
     repo = asyncio.run(_load_repo())
-    assert served_root(repo) == str(moved.resolve())
+    assert Path(served_root(repo) or "") == moved.resolve()

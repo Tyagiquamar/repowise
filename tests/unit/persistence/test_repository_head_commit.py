@@ -294,7 +294,12 @@ async def test_upsert_repository_rewrites_sole_row_when_path_misses(
 
             from repowise.core.persistence.models import Repository
 
-            repo = await upsert_repository(session, name="moved", local_path=str(moved))
+            repo = await upsert_repository(
+                session,
+                name="moved",
+                local_path=str(moved),
+                relocate_sole_row_on_path_miss=True,
+            )
             assert repo.id == first_id
             assert repo.local_path == str(moved)
             count = await session.scalar(select(func.count()).select_from(Repository))
